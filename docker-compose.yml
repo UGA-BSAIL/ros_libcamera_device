@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  builder:
+    # Docker container for building the code.
+    build:
+      context: .
+      dockerfile: dockerfiles/ros_env.docker
+      target: builder
+    ports:
+      - "1824:22"
+    volumes:
+      - .:/home/ros/ros_libcamera
