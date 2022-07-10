@@ -36,4 +36,20 @@ RUN yes password | passwd ros
 # Copy the wrapper script for cmake.
 ADD scripts/catkin_cmake.sh /usr/bin/catkin_cmake
 
+# Install libcamera.
+RUN apt-get update && apt-get install -y git ninja-build libyaml-dev python3-yaml python3-ply \
+    python3-jinja2 libgnutls28-dev openssl libdw-dev libudev-dev python3-pip gcc-8 g++-8 && \
+    rm -rf /var/lib/apt/lists/*
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 50
+RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 50
+RUN pip3 install meson
+RUN git clone https://git.libcamera.org/libcamera/libcamera.git
+RUN cd libcamera && meson build --buildtype=release -Dpipelines=raspberrypi -Dipas=raspberrypi \
+    -Dv4l2=true -Dgstreamer=disabled -Dtest=false -Dlc-compliance=disabled -Dcam=disabled -Dqcam=disabled \
+    -Ddocumentation=disabled && \
+    ninja -C build install
+
+# Install runtime dependencies.
+RUN apt-get update && apt-get install -y libjpeg-dev libtiff-dev libpng-dev libexif-dev && rm -rf /var/lib/apt/lists/*
+
 CMD ["/usr/sbin/sshd", "-D", "-e", "-f", "/etc/ssh/sshd_config_test_clion"]
