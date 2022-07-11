@@ -6,6 +6,9 @@ services:
       context: .
       dockerfile: dockerfiles/ros_env.docker
       target: builder
+      args:
+        # Force the user in the container to have the same UID to avoid permission issues.
+        ROS_UID: "${ROS_UID:?err}"
     ports:
       - "1824:22"
     volumes:

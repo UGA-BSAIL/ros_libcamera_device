@@ -16,7 +16,8 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN apt-get update && apt-get install -y ros-melodic-ros-base
 
 # Add ros user.
-RUN useradd -m ros
+ARG ROS_UID
+RUN useradd -m -u $ROS_UID ros
 
 # Container for building the code.
 FROM common as builder
