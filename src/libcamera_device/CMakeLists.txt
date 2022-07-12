@@ -175,16 +175,7 @@ include_directories(${CMAKE_SOURCE_DIR} ${LIBCAMERA_INCLUDE_DIRS})
 #   ${catkin_LIBRARIES}
 # )
 
-add_subdirectory(src/core)
-add_subdirectory(src/encoder)
-add_subdirectory(src/preview)
-add_subdirectory(src/image)
-add_subdirectory(src/post_processing_stages)
-
-# Add node executable.
-add_executable(${PROJECT_NAME}_node src/camera_node.cpp)
-target_compile_features(${PROJECT_NAME}_node PRIVATE cxx_std_17)
-target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} ${PROJECT_NAME})
+add_subdirectory(src)
 
 #############
 ## Install ##

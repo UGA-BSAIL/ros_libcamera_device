@@ -688,7 +688,7 @@ void LibcameraApp::setupCapture()
 
 	startPreview();
 
-	// The requests will be made when StartCamera() is called.
+	// The requests will be made when RunCamera() is called.
 }
 
 void LibcameraApp::makeRequests()
