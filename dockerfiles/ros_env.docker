@@ -13,7 +13,8 @@ ENV TZ=America/New_York
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Install ROS.
-RUN apt-get update && apt-get install -y ros-melodic-ros-base
+RUN apt-get update && apt-get install -y \
+    ros-melodic-ros-base ros-melodic-image-transport
 
 # Add ros user.
 ARG ROS_UID

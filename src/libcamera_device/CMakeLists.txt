@@ -8,9 +8,10 @@ project(libcamera_device)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  sensor_msgs
-)
+        roscpp
+        sensor_msgs
+        image_transport
+        )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -102,10 +103,10 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES libcamera_device
-#  CATKIN_DEPENDS roscpp sensor_msgs
-#  DEPENDS system_lib
+        #  INCLUDE_DIRS include
+        #  LIBRARIES libcamera_device
+        #  CATKIN_DEPENDS roscpp sensor_msgs
+        #  DEPENDS system_lib
 )
 
 ###########
@@ -116,7 +117,7 @@ IF (NOT ENABLE_COMPILE_FLAGS_FOR_TARGET)
     # On a Pi this will give us armhf or arm64.
     execute_process(COMMAND dpkg-architecture -qDEB_HOST_ARCH
             OUTPUT_VARIABLE ENABLE_COMPILE_FLAGS_FOR_TARGET OUTPUT_STRIP_TRAILING_WHITESPACE)
-endif()
+endif ()
 message(STATUS "Platform: ${ENABLE_COMPILE_FLAGS_FOR_TARGET}")
 if ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "arm64")
     # 64-bit binaries can be fully optimised.
@@ -124,14 +125,14 @@ if ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "arm64")
 elseif ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "armv8-neon")
     # Only build with 32-bit Pi 3/4 specific optimisations if requested on the command line.
     add_definitions(-mfpu=neon-fp-armv8 -ftree-vectorize)
-endif()
+endif ()
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
-  ${catkin_INCLUDE_DIRS}
-  src
+        # include
+        ${catkin_INCLUDE_DIRS}
+        src
 )
 
 find_package(PkgConfig REQUIRED)
@@ -179,6 +180,11 @@ add_subdirectory(src/encoder)
 add_subdirectory(src/preview)
 add_subdirectory(src/image)
 add_subdirectory(src/post_processing_stages)
+
+# Add node executable.
+add_executable(${PROJECT_NAME}_node src/camera_node.cpp)
+target_compile_features(${PROJECT_NAME}_node PRIVATE cxx_std_17)
+target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} ${PROJECT_NAME})
 
 #############
 ## Install ##
