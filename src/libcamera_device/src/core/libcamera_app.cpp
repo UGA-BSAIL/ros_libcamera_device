@@ -306,7 +306,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 
 	// Now we get to override any of the default settings from the options_->
 	StreamConfiguration &cfg = configuration_->at(0);
-	cfg.pixelFormat = libcamera::formats::YUV422;
+	cfg.pixelFormat = libcamera::formats::RGB888;
 	cfg.bufferCount = 6; // 6 buffers is better than 4
 	if (options_->width)
 		cfg.size.width = options_->width;
@@ -688,7 +688,7 @@ void LibcameraApp::setupCapture()
 
 	startPreview();
 
-	// The requests will be made when RunCamera() is called.
+	// The requests will be made when Run() is called.
 }
 
 void LibcameraApp::makeRequests()

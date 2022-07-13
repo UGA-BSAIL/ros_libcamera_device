@@ -2,54 +2,34 @@
  * @file Entry point for the node that reads camera data.
  */
 
-#include <libcamera/pixel_format.h>
-#include <ros/ros.h>
 #include <image_transport/image_transport.h>
+#include <ros/ros.h>
 #include <sensor_msgs/Image.h>
-#include <sensor_msgs/image_encodings.h>
 
-#include <cstdint>
-#include <map>
-#include <string>
+#include <functional>
+#include <memory>
 
-#include "core/libcamera_encoder.hpp"
-#include "core/stream_info.hpp"
 #include "camera_messenger.hpp"
+#include "core/libcamera_encoder.hpp"
 
 using image_transport::ImageTransport;
+using image_transport::Publisher;
+using libcamera_device::CameraMessenger;
+using sensor_msgs::Image;
 
 namespace {
 
-// Maps LibCamera pixel formats to ROS pixel formats.
-const std::map<libcamera::PixelFormat, std::string> kPixelFormatToEncoding = {
-    {libcamera::formats::YUV422, sensor_msgs::image_encodings::YUV422}};
+// Unfortunately, Boost has its own placeholders that conflict with the std
+// ones, so we have to rename them.
+const auto kStd1 = std::placeholders::_1;
 
-bool PublishEncoded(ImageTransport *transport, const StreamInfo &stream_info,
-                    void *buffer, size_t buffer_size, int64_t timestamp_us,
-                    uint32_t flags) {
-  // Create the message for this image.
-  sensor_msgs::Image message;
-
-  message.header.stamp.sec = timestamp_us / 1000000;
-  message.header.stamp.nsec = (timestamp_us % 1000000) * 1000;
-
-  message.height = stream_info.height;
-  message.width = stream_info.width;
-  message.step = stream_info.width * stream_info.stride;
-  message.is_bigendian = false;
-
-  // Translate from LibCamera format specifiers to ROS.
-  const auto encoding = kPixelFormatToEncoding.find(stream_info.pixel_format);
-  ROS_FATAL_STREAM_COND(encoding == kPixelFormatToEncoding.end(),
-                        "Got pixel format " << stream_info.pixel_format
-                                            << ", which is not supported.");
-  message.encoding = encoding->second;
-
-  // I don't get why people still use void pointers in the Year of Our Lord
-  // 2022...
-  const uint8_t *byte_buffer = static_cast<uint8_t *>(buffer);
-  // Copy raw image data.
-  message.data.assign(byte_buffer, byte_buffer + buffer_size);
+/**
+ * Publishes a camera message. This is meant to be used as a callback.
+ * @param publisher Will be used for publishing images.
+ * @param image The image to publish.
+ */
+void PublishEncoded(Publisher *publisher, const Image &image) {
+  publisher->publish(image);
 }
 
 }  // namespace
@@ -59,4 +39,17 @@ int main(int argc, char **argv) {
   ros::NodeHandle node;
 
   ROS_INFO_STREAM("Starting camera node...");
+
+  ImageTransport image_transport(node);
+  auto image_publisher = image_transport.advertise("camera", 1);
+
+  // Set up the camera.
+  CameraMessenger camera(std::make_unique<LibcameraEncoder>(), "camera_frame");
+  camera.SetMessageReadyCallback(
+      std::bind(PublishEncoded, &image_publisher, kStd1));
+
+  // Process all camera messages.
+  camera.Run();
+
+  return 0;
 }

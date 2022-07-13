@@ -9,4 +9,7 @@ add_subdirectory(post_processing_stages)
 # Add node executable.
 add_executable(${PROJECT_NAME}_node camera_node.cpp camera_messenger.cpp)
 target_compile_features(${PROJECT_NAME}_node PRIVATE cxx_std_17)
-target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES} libcamera_app)
+target_link_libraries(${PROJECT_NAME}_node
+        ${catkin_LIBRARIES}
+        ${LIBCAMERA_LIBRARIES}
+        libcamera_app)

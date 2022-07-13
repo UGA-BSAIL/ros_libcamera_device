@@ -36,7 +36,7 @@ class CameraMessenger {
    * @brief Initializes the camera and starts reading data. Will block
    *    forever reading frames.
    */
-  void RunCamera();
+  void Run();
 
   /**
    * Sets the callback that will be invoked whenever a new message is ready.
@@ -48,7 +48,7 @@ class CameraMessenger {
   /// Camera app that we will read frames from.
   std::unique_ptr<LibcameraEncoder> camera_app_;
   /// Information about the video stream from the camera.
-  const StreamInfo stream_info_;
+  StreamInfo stream_info_;
   /// Associated ROS pixel format.
   std::string ros_pixel_format_;
   /// The frame ID to use for sent messages.
@@ -69,6 +69,17 @@ class CameraMessenger {
    */
   void TranslateEncoded(void *buffer, size_t buffer_size, int64_t timestamp_us,
                         uint32_t flags);
+
+  /**
+   * @brief Updates the stream information, based on the currently-configured
+   *    camera.
+   */
+  void UpdateStreamInfo();
+
+  /**
+   * @brief Ensures that the options for the camera app are sane.
+   */
+  void ConfigureOptions();
 };
 
 }  // namespace libcamera_device
