@@ -20,7 +20,7 @@ const auto kStd4 = std::placeholders::_4;
 // Maps LibCamera pixel formats to ROS pixel formats.
 const std::map<libcamera::PixelFormat, std::string> kPixelFormatToEncoding = {
     {libcamera::formats::YUV422, sensor_msgs::image_encodings::YUV422},
-    {libcamera::formats::RGB888, sensor_msgs::image_encodings::RGB8},
+    {libcamera::formats::RGB888, sensor_msgs::image_encodings::BGR8},
 };
 
 }  // namespace
@@ -123,9 +123,16 @@ void CameraMessenger::ConfigureOptions() {
   // We don't have any use for preview mode.
   options->nopreview = true;
   // Use automatic denoising.
-  options->denoise = "auto";
+  options->denoise = "off";
   // This just outputs the raw image data with no encoding.
   options->codec = "yuv420";
+
+  options->brightness = 0.0;
+  options->contrast = 1.0;
+  options->saturation = 1.0;
+  options->sharpness = 1.0;
+  options->framerate = 30;
+  options->mode = Mode(1920, 1080, 24, false);
 }
 
 }  // namespace libcamera_device

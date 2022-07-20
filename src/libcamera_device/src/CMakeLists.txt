@@ -6,6 +6,8 @@ add_subdirectory(preview)
 add_subdirectory(image)
 add_subdirectory(post_processing_stages)
 
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+
 # Add node executable.
 add_executable(${PROJECT_NAME}_node camera_node.cpp camera_messenger.cpp)
 target_compile_features(${PROJECT_NAME}_node PRIVATE cxx_std_17)
