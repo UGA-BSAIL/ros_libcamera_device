@@ -23,18 +23,28 @@ const std::map<libcamera::PixelFormat, std::string> kPixelFormatToEncoding = {
     {libcamera::formats::RGB888, sensor_msgs::image_encodings::BGR8},
 };
 
+// Sane default options to use for video.
+const VideoOptions kDefaultOptions = {
+
+};
+
 }  // namespace
 
 CameraMessenger::CameraMessenger(std::unique_ptr<LibcameraEncoder>&& camera_app,
-                                 std::string frame_id)
+                                 std::string frame_id,
+                                 const VideoOptions& options)
     : camera_app_(std::move(camera_app)),
       frame_id_(std::move(frame_id)),
       on_message_ready_([](const sensor_msgs::Image&) {
         // Default callback does nothing, but logs a warning.
         ROS_WARN_STREAM("Got a camera message, but no callback is registered.");
       }) {
-  // Set sane default options.
-  ConfigureOptions();
+  ConfigureOptions(options);
+}
+
+CameraMessenger::~CameraMessenger() {
+  // Make sure the camera is stopped.
+  Stop();
 }
 
 void CameraMessenger::TranslateEncoded(void* buffer, size_t buffer_size,
@@ -59,7 +69,7 @@ void CameraMessenger::TranslateEncoded(void* buffer, size_t buffer_size,
   // Copy raw image data.
   message.data.assign(byte_buffer, byte_buffer + buffer_size);
 
-  // Run the callback with the new message.
+  // WaitForFrame the callback with the new message.
   on_message_ready_(message);
 }
 
@@ -69,13 +79,20 @@ void CameraMessenger::SetMessageReadyCallback(
   on_message_ready_ = callback;
 }
 
-void CameraMessenger::Run() {
+void CameraMessenger::Start() {
+  if (camera_running_) {
+    // Already running.
+    return;
+  }
+  camera_running_ = true;
+
   ROS_INFO_STREAM("Starting camera.");
 
   // Set up the callback.
   camera_app_->SetEncodeOutputReadyCallback(std::bind(
       &CameraMessenger::TranslateEncoded, this, kStd1, kStd2, kStd3, kStd4));
 
+  ROS_DEBUG_STREAM("Opening camera.");
   camera_app_->OpenCamera();
   camera_app_->ConfigureVideo(LibcameraEncoder::FLAG_VIDEO_NONE);
 
@@ -84,26 +101,42 @@ void CameraMessenger::Run() {
 
   camera_app_->StartEncoder();
   camera_app_->StartCamera();
+}
 
-  // Main event loop.
-  while (true) {
-    LibcameraEncoder::Msg message = camera_app_->Wait();
-    if (message.type == LibcameraEncoder::MsgType::Quit) {
-      ROS_INFO_STREAM("Stopping camera due to LibCamera request.");
-      break;
-    }
-    ROS_FATAL_STREAM_COND(
-        message.type != LibcameraEncoder::MsgType::RequestComplete,
-        "Got unrecognized message type " << static_cast<uint32_t>(message.type)
-                                         << " from LibCamera!");
-
-    auto& completed_request = std::get<CompletedRequestPtr>(message.payload);
-    camera_app_->EncodeBuffer(completed_request, camera_app_->VideoStream());
+void CameraMessenger::Stop() {
+  if (!camera_running_) {
+    // Camera already stopped.
+    return;
   }
+  camera_running_ = false;
 
   ROS_INFO_STREAM("Stopping camera.");
   camera_app_->StopCamera();
   camera_app_->StopEncoder();
+  camera_app_->Teardown();
+  camera_app_->CloseCamera();
+}
+
+bool CameraMessenger::WaitForFrame() {
+  if (!camera_running_) {
+    ROS_ERROR_ONCE("Camera is not running, cannot wait for frame.");
+    return false;
+  }
+
+  LibcameraEncoder::Msg message = camera_app_->Wait();
+  if (message.type == LibcameraEncoder::MsgType::Quit) {
+    ROS_INFO_STREAM("Got LibCamera quit request.");
+    return false;
+  }
+  ROS_FATAL_STREAM_COND(
+      message.type != LibcameraEncoder::MsgType::RequestComplete,
+      "Got unrecognized message type " << static_cast<uint32_t>(message.type)
+                                       << " from LibCamera!");
+
+  auto& completed_request = std::get<CompletedRequestPtr>(message.payload);
+  camera_app_->EncodeBuffer(completed_request, camera_app_->VideoStream());
+
+  return true;
 }
 
 void CameraMessenger::UpdateStreamInfo() {
@@ -117,22 +150,18 @@ void CameraMessenger::UpdateStreamInfo() {
   ros_pixel_format_ = encoding->second;
 }
 
-void CameraMessenger::ConfigureOptions() {
-  auto *options = camera_app_->GetOptions();
+void CameraMessenger::ConfigureOptions(const VideoOptions& new_options) {
+  // Copy the specified options to the camera app.
+  auto* options = camera_app_->GetOptions();
 
-  // We don't have any use for preview mode.
-  options->nopreview = true;
-  // Use automatic denoising.
-  options->denoise = "off";
-  // This just outputs the raw image data with no encoding.
-  options->codec = "yuv420";
-
-  options->brightness = 0.0;
-  options->contrast = 1.0;
-  options->saturation = 1.0;
-  options->sharpness = 1.0;
-  options->framerate = 30;
-  options->mode = Mode(1920, 1080, 24, false);
+  options->nopreview = new_options.nopreview;
+  options->denoise = new_options.denoise;
+  options->codec = new_options.codec;
+  options->brightness = new_options.brightness;
+  options->saturation = new_options.saturation;
+  options->sharpness = new_options.sharpness;
+  options->framerate = new_options.framerate;
+  options->mode = new_options.mode;
 }
 
 }  // namespace libcamera_device

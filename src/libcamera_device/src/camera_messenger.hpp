@@ -30,13 +30,23 @@ class CameraMessenger {
    * @param frame_id The frame ID to use for published messages.
    */
   explicit CameraMessenger(std::unique_ptr<LibcameraEncoder> &&camera_app,
-                           std::string frame_id);
+                           std::string frame_id, const VideoOptions &options);
+
+  ~CameraMessenger();
 
   /**
-   * @brief Initializes the camera and starts reading data. Will block
-   *    forever reading frames.
+   * @brief Starts the camera. Must be called before `WaitForFrame()`.
    */
-  void Run();
+  void Start();
+
+  /**
+   * @brief Reads a single frame from the camera.
+   * @return True if it successfully got a frame, false otherwise.
+   */
+  bool WaitForFrame();
+
+  /** @brief Stops the camera. */
+  void Stop();
 
   /**
    * Sets the callback that will be invoked whenever a new message is ready.
@@ -44,7 +54,14 @@ class CameraMessenger {
    */
   void SetMessageReadyCallback(const MessageReadyCallback &callback);
 
+  /**
+   * @brief Sets new options for the camera.
+   */
+  void ConfigureOptions(const VideoOptions &new_options);
+
  private:
+  /// True iff camera is currently running.
+  bool camera_running_ = false;
   /// Camera app that we will read frames from.
   std::unique_ptr<LibcameraEncoder> camera_app_;
   /// Information about the video stream from the camera.
@@ -75,11 +92,6 @@ class CameraMessenger {
    *    camera.
    */
   void UpdateStreamInfo();
-
-  /**
-   * @brief Ensures that the options for the camera app are sane.
-   */
-  void ConfigureOptions();
 };
 
 }  // namespace libcamera_device

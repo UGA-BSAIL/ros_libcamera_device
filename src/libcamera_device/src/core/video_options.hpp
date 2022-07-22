@@ -57,7 +57,7 @@ struct VideoOptions : public Options
 			("circular", value<size_t>(&circular)->default_value(0)->implicit_value(4),
 			 "Write output to a circular buffer of the given size (in MB) which is saved on exit")
 			("frames", value<unsigned int>(&frames)->default_value(0),
-			 "Run for the exact number of frames specified. This will override any timeout set.")
+			 "WaitForFrame for the exact number of frames specified. This will override any timeout set.")
 #if LIBAV_PRESENT
 			("libav-format", value<std::string>(&libav_format)->default_value(""),
 			 "Sets the libav encoder output format to use. "

@@ -212,4 +212,6 @@ private:
 	uint64_t last_timestamp_;
 	uint64_t sequence_ = 0;
 	PostProcessor post_processor_;
+        // Whether the preview thread is currently running.
+        bool is_preview_thread_active_ = false;
 };

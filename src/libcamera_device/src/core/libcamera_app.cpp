@@ -761,6 +761,11 @@ void LibcameraApp::previewDoneCallback(int fd)
 
 void LibcameraApp::startPreview()
 {
+        if (is_preview_thread_active_) {
+          return;
+        }
+        is_preview_thread_active_ = true;
+
 	preview_abort_ = false;
 	preview_thread_ = std::thread(&LibcameraApp::previewThread, this);
 }

@@ -207,7 +207,7 @@ HdrImage HdrImage::LpFilter(LpFilterConfig const &config) const
 	HdrImage out(width, height, width * height);
 	out.dynamic_range = dynamic_range;
 
-	// Run the forward pass in other thread, so that the two passes run in parallel.
+	// WaitForFrame the forward pass in other thread, so that the two passes run in parallel.
 	std::thread fwd_pass(forward_pass, std::ref(fwd_pixels), std::ref(fwd_weight_sums), std::ref(*this),
 						 std::ref(weights), std::ref(threshold), width, height, size, strength);
 
