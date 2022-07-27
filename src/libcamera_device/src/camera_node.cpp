@@ -112,14 +112,14 @@ int main(int argc, char **argv) {
   // Read parameters.
   std::string camera_name, frame_id;
   int32_t device_id;
-  node.param<std::string>("camera_name", camera_name, "camera");
   node.param<std::string>("frame_id", frame_id, "frame");
   node.param<int32_t>("device_id", device_id, 0);
 
   ROS_INFO_STREAM("Starting camera node...");
 
   ImageTransport image_transport(node);
-  auto image_publisher = image_transport.advertise(camera_name, 1);
+  auto image_publisher =
+      image_transport.advertise(ros::this_node::getName(), 1);
 
   Server<LibcameraDeviceConfig> param_server;
 
