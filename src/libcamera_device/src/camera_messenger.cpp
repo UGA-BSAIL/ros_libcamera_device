@@ -119,7 +119,6 @@ void CameraMessenger::Stop() {
 
 bool CameraMessenger::WaitForFrame() {
   if (!camera_running_) {
-    ROS_ERROR_ONCE("Camera is not running, cannot wait for frame.");
     return false;
   }
 
@@ -158,6 +157,7 @@ void CameraMessenger::ConfigureOptions(const VideoOptions& new_options) {
   options->denoise = new_options.denoise;
   options->codec = new_options.codec;
   options->brightness = new_options.brightness;
+  options->contrast = new_options.contrast;
   options->saturation = new_options.saturation;
   options->sharpness = new_options.sharpness;
   options->framerate = new_options.framerate;

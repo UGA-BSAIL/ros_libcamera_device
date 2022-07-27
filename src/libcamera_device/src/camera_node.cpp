@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <string>
 
 #include "camera_messenger.hpp"
 #include "core/libcamera_encoder.hpp"
@@ -31,6 +32,14 @@ const auto kStd1 = std::placeholders::_1;
 const auto kStd2 = std::placeholders::_2;
 
 /**
+ * @struct Represents static configuration, which is set once at startup.
+ */
+struct StaticConfig {
+  /// The numeric identifier of the camera to read from.
+  int32_t device_id;
+};
+
+/**
  * Publishes a camera message. This is meant to be used as a callback.
  * @param publisher Will be used for publishing images.
  * @param image The image to publish.
@@ -42,18 +51,23 @@ void PublishEncoded(Publisher *publisher, const Image &image) {
 /**
  * @brief Translates the configuration struct used by `dynamic_reconfigure` to
  *  the one used by `libcamera`.
- * @param in_config The parameter configuration.
+ * @param static_config The static parameter configuration.
+ * @param dynamic_config The dynamic parameter configuration.
  * @param out_config [out] The camera configuration.
  */
-void ParamToVideoConfig(const LibcameraDeviceConfig &in_config,
+void ParamToVideoConfig(const StaticConfig static_config,
+                        const LibcameraDeviceConfig &dynamic_config,
                         VideoOptions *out_config) {
-  out_config->framerate = in_config.fps;
-  out_config->mode = Mode(in_config.width, in_config.height, 24, false);
+  out_config->framerate = static_cast<float>(dynamic_config.fps);
+  out_config->mode =
+      Mode(dynamic_config.width, dynamic_config.height, 24, false);
+
+  out_config->camera = static_config.device_id;
 
   // Set options that are necessary, but that we don't support configuring
   // (yet). We don't have any use for preview mode.
   out_config->nopreview = true;
-  // Use automatic denoising.
+  // Don't use denoising.
   out_config->denoise = "off";
   // This just outputs the raw image data with no encoding.
   out_config->codec = "yuv420";
@@ -68,18 +82,20 @@ void ParamToVideoConfig(const LibcameraDeviceConfig &in_config,
  * @brief Reconfigures the camera parameters. Meant to be used as a callback for
  *   dynamic reconfiguration.
  * @param messenger The `CameraMessenger` to reconfigure.
- * @param config The configuration that was changed.
+ * @param dynamic_config The configuration that was changed.
  * @param level The configuration level bitmask.
  */
 void ReconfigureParams(CameraMessenger *messenger,
-                       LibcameraDeviceConfig &config, uint32_t level) {
-  ROS_INFO_STREAM("Reconfigure request: " << config.width << "x"
-                                          << config.height << ", " << config.fps
-                                          << " FPS.");
+                       const StaticConfig &static_config,
+                       const LibcameraDeviceConfig &dynamic_config,
+                       uint32_t level) {
+  ROS_INFO_STREAM("Reconfigure request: " << dynamic_config.width << "x"
+                                          << dynamic_config.height << ", "
+                                          << dynamic_config.fps << " FPS.");
 
   // Set the new parameters.
   VideoOptions camera_options;
-  ParamToVideoConfig(config, &camera_options);
+  ParamToVideoConfig(static_config, dynamic_config, &camera_options);
 
   // Camera needs to be restarted for these to take effect.
   messenger->Stop();
@@ -93,32 +109,46 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "camera", ros::init_options::AnonymousName);
   ros::NodeHandle node;
 
+  // Read parameters.
+  std::string camera_name, frame_id;
+  int32_t device_id;
+  node.param<std::string>("camera_name", camera_name, "camera");
+  node.param<std::string>("frame_id", frame_id, "frame");
+  node.param<int32_t>("device_id", device_id, 0);
+
   ROS_INFO_STREAM("Starting camera node...");
 
   ImageTransport image_transport(node);
-  auto image_publisher = image_transport.advertise("camera", 1);
+  auto image_publisher = image_transport.advertise(camera_name, 1);
 
   Server<LibcameraDeviceConfig> param_server;
 
   // Set the default configuration initially.
-  LibcameraDeviceConfig default_param_config;
+  const StaticConfig kStaticConfig = {device_id};
+  LibcameraDeviceConfig default_dynamic_config;
   VideoOptions default_video_options;
-  param_server.getConfigDefault(default_param_config);
-  ParamToVideoConfig(default_param_config, &default_video_options);
+  param_server.getConfigDefault(default_dynamic_config);
+  ParamToVideoConfig(kStaticConfig, default_dynamic_config,
+                     &default_video_options);
 
   // Set up the camera.
-  CameraMessenger camera(std::make_unique<LibcameraEncoder>(), "camera_frame",
+  CameraMessenger camera(std::make_unique<LibcameraEncoder>(), frame_id,
                          default_video_options);
   camera.SetMessageReadyCallback(
       std::bind(PublishEncoded, &image_publisher, kStd1));
-  camera.Start();
 
-  // Configure the dynamic reconfiguration reconfigure_callback.
+  // Configure the dynamic reconfiguration callback.
   Server<LibcameraDeviceConfig>::CallbackType reconfigure_callback =
-      std::bind(ReconfigureParams, &camera, kStd1, kStd2);
+      std::bind(ReconfigureParams, &camera, kStaticConfig, kStd1, kStd2);
   param_server.setCallback(reconfigure_callback);
 
   // Process all camera messages.
+  ros::Rate rate(5);
+  // Wait for the camera to initialize.
+  while (!camera.WaitForFrame()) {
+    rate.sleep();
+  }
+  ROS_DEBUG_STREAM("Camera initialized!");
   while (camera.WaitForFrame()) {
     ros::spinOnce();
   }
